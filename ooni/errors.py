@@ -119,7 +119,7 @@ def failureToString(failure):
     elif isinstance(failure.value, SOCKSError):
         log.err("Generic SOCKS error")
         string = 'socks_error'
-    
+
     elif isinstance(failure.value, CancelledError):
         log.err("Task timed out")
         string = 'task_timed_out'
@@ -221,6 +221,9 @@ class TaskTimedOut(Exception):
     pass
 
 class InvalidInputFile(Exception):
+    pass
+
+class MaximumRedirects(Exception):
     pass
 
 def get_error(error_key):
