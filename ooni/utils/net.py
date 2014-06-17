@@ -4,7 +4,6 @@ from random import randint
 
 from zope.interface import implements
 from twisted.internet import protocol, defer
-from twisted.internet import threads, reactor
 from twisted.web.iweb import IBodyProducer
 
 from ooni.utils import log
@@ -64,12 +63,12 @@ class StringProducer(object):
 class BodyReceiver(protocol.Protocol):
     def __init__(self, finished, content_length=None, body_processor=None):
         self.finished = finished
-        self.data = ""
+        self.data = []
         self.bytes_remaining = content_length
         self.body_processor = body_processor
 
     def dataReceived(self, b):
-        self.data += b
+        self.data.append(b)
         if self.bytes_remaining:
             if self.bytes_remaining == 0:
                 self.connectionLost(None)
@@ -79,8 +78,8 @@ class BodyReceiver(protocol.Protocol):
     def connectionLost(self, reason):
         try:
             if self.body_processor:
-                self.data = self.body_processor(self.data)
-            self.finished.callback(self.data)
+                self.data = self.body_processor(''.join(self.data))
+            self.finished.callback(''.join(self.data))
         except Exception as exc:
             self.finished.errback(exc)
 
@@ -121,6 +120,8 @@ def getPosixIfaces():
 
     log.msg("Attempting to discover network interfaces...")
     ifaces = _posixifaces._interfaces()
+    # XXX this function is not defined anywhere.
+    #     check if this code is even used anywhere.
     ifup = tryInterfaces(ifaces)
     return ifup
 
@@ -129,6 +130,7 @@ def getWindowsIfaces():
 
     log.msg("Attempting to discover network interfaces...")
     ifaces = _win32ifaces._interfaces()
+    # XXX same as above.
     ifup = tryInterfaces(ifaces)
     return ifup
 
@@ -191,7 +193,7 @@ def checkInterfaces(ifaces=None, timeout=1):
                       + " local address {}".format(ifname, ifaddr))
             try:
                 pkt = IP(dst=ifaddr)/ICMP()
-                ans, unans = sr(pkt, iface=ifname, timeout=5, retry=3)
+                ans, unans = sr1(pkt, iface=ifname, timeout=5, retry=3)
             except Exception, e:
                 raise PermissionsError if e.find("Errno 1") else log.err(e)
             else:
@@ -228,9 +230,3 @@ def getNonLoopbackIfaces(platform_name=None):
             return None
         else:
             return interfaces
-
-
-def getLocalAddress():
-    default_iface = getDefaultIface()
-    return default_iface.ipaddr
-
